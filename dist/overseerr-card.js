@@ -332,8 +332,11 @@ class OverseerrCard extends HTMLElement {
     this._selectedMedia = null;
     this._renderSearchResults();
     try {
-      const data = await this._apiGet("/search", { query, language: "en" });
-      let results = data.results || [];
+      // Overseerr /search only accepts 'query' and 'page' — 'language' causes HTTP 400
+      const data = await this._apiGet("/search", { query, page: 1 });
+      let results = (data.results || []).filter(
+        (r) => r.mediaType === "movie" || r.mediaType === "tv"
+      );
       if (this._searchFilter === "movie") results = results.filter((r) => r.mediaType === "movie");
       if (this._searchFilter === "tv")    results = results.filter((r) => r.mediaType === "tv");
       this._searchResults = results;
@@ -519,8 +522,9 @@ class OverseerrCard extends HTMLElement {
     }
     const items = this._requestsList.map((req) => {
       const media  = req.media || {};
+      // Overseerr returns title (movies) or name (TV) directly on the media object
       const poster = this._posterUrl(media.posterPath);
-      const title  = media.originalTitle || media.originalName || "Unknown Title";
+      const title  = media.title || media.name || media.originalTitle || media.originalName || "Unknown Title";
       const type   = req.type === "movie" ? "Movie" : "TV";
       const status = STATUS_MAP[media.status] || STATUS_MAP[1];
       const date   = req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "";
