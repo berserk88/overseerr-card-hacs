@@ -1,11 +1,11 @@
 # Overseerr Card for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![GitHub release](https://img.shields.io/github/release/YOUR_GITHUB_USERNAME/overseerr-card-hacs.svg)](https://github.com/YOUR_GITHUB_USERNAME/overseerr-card-hacs/releases)
+[![GitHub release](https://img.shields.io/github/release/berserk88/overseerr-card-hacs.svg)](https://github.com/berserk88/overseerr-card-hacs/releases)
 
 A custom Lovelace card for Home Assistant that provides a full graphical interface for searching, browsing, and requesting movies & TV shows through [Overseerr](https://overseerr.dev/).
 
-> **Also install the integration:** [overseerr-hacs](https://github.com/YOUR_GITHUB_USERNAME/overseerr-hacs)
+> **Also install the integration:** [overseerr-hacs](https://github.com/berserk88/overseerr-hacs)
 
 ---
 
@@ -23,7 +23,7 @@ The card features three tabs:
 1. Open HACS in Home Assistant
 2. Go to **Frontend**
 3. Click the three-dot menu → **Custom repositories**
-4. Add: `https://github.com/YOUR_GITHUB_USERNAME/overseerr-card-hacs` — Category: **Frontend**
+4. Add: `https://github.com/berserk88/overseerr-card-hacs` — Category: **Frontend**
 5. Click **Download** on the Overseerr Card entry
 6. Refresh your browser (hard refresh: Ctrl+Shift+R)
 
