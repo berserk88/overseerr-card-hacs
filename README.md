@@ -54,7 +54,7 @@ api_key: "your_overseerr_api_key"
 
 - Home Assistant with Lovelace
 - A running [Overseerr](https://overseerr.dev/) instance accessible from your browser
-- The [Overseerr integration](https://github.com/YOUR_GITHUB_USERNAME/overseerr-hacs) (recommended — provides sensor data shown in the card header)
+- The [Overseerr integration](https://github.com/berserk88/overseerr-hacs) (recommended — provides sensor data shown in the card header)
 
 ---
 
