@@ -1,11 +1,21 @@
 # Overseerr Card for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![GitHub release](https://img.shields.io/github/release/berserk88/overseerr-card-hacs.svg)](https://github.com/berserk88/overseerr-card-hacs/releases)
+[![GitHub release](https://img.shields.io/github/release/YOUR_GITHUB_USERNAME/overseerr-card-hacs.svg)](https://github.com/YOUR_GITHUB_USERNAME/overseerr-card-hacs/releases)
 
 A custom Lovelace card for Home Assistant that provides a full graphical interface for searching, browsing, and requesting movies & TV shows through [Overseerr](https://overseerr.dev/).
 
-> **Also install the integration:** [overseerr-hacs](https://github.com/berserk88/overseerr-hacs)
+> **Also install the integration:** [overseerr-hacs](https://github.com/YOUR_GITHUB_USERNAME/overseerr-hacs) — **required** for the card to function.
+
+---
+
+## How it works
+
+All API calls are **proxied through the HA backend** — the integration registers a `/api/overseerr_proxy/` endpoint on Home Assistant's HTTP server and forwards requests to Overseerr server-side. The card uses `hass.fetchWithAuth()` so:
+
+- ✅ No CORS issues (no direct browser-to-Overseerr traffic)
+- ✅ No API key or URL stored in the card config
+- ✅ All requests are authenticated via your HA session
 
 ---
 
@@ -14,7 +24,7 @@ A custom Lovelace card for Home Assistant that provides a full graphical interfa
 The card features three tabs:
 - **Search** — search any movie or TV show, tap for a detail view with one-click requesting
 - **Trending** — browse what's trending right now
-- **Requests** — view all requests with live status indicators
+- **Requests** — view all requests with live status indicators (Pending / Processing / Available)
 
 ---
 
@@ -23,7 +33,7 @@ The card features three tabs:
 1. Open HACS in Home Assistant
 2. Go to **Frontend**
 3. Click the three-dot menu → **Custom repositories**
-4. Add: `https://github.com/berserk88/overseerr-card-hacs` — Category: **Frontend**
+4. Add: `https://github.com/YOUR_GITHUB_USERNAME/overseerr-card-hacs` — Category: **Frontend**
 5. Click **Download** on the Overseerr Card entry
 6. Refresh your browser (hard refresh: Ctrl+Shift+R)
 
@@ -35,31 +45,16 @@ Add a **Manual card** to your Lovelace dashboard:
 
 ```yaml
 type: custom:overseerr-card
-overseerr_url: "http://192.168.1.100:5055"
-api_key: "your_overseerr_api_key"
 ```
 
-### Configuration Options
+That's it — no URL or API key needed in the card config. Everything is handled by the integration's proxy.
 
-| Option | Required | Description |
-|---|---|---|
-| `overseerr_url` | ✅ Yes | Full URL to your Overseerr instance |
-| `api_key` | ✅ Yes | Your Overseerr API key |
-
-> Your API Key is in Overseerr under **Settings → General**
+> **The Overseerr integration must be installed and configured first.** The integration registers the `/api/overseerr_proxy/` endpoint the card depends on.
 
 ---
 
 ## Requirements
 
 - Home Assistant with Lovelace
-- A running [Overseerr](https://overseerr.dev/) instance accessible from your browser
-- The [Overseerr integration](https://github.com/berserk88/overseerr-hacs) (recommended — provides sensor data shown in the card header)
-
----
-
-## Notes
-
-- The card makes API calls directly from your browser to Overseerr, so Overseerr must be reachable from the device you're viewing the dashboard on
-- Poster images are loaded from `image.tmdb.org`
-- If your HA is on HTTPS, Overseerr must also be on HTTPS to avoid mixed content errors
+- The [Overseerr integration](https://github.com/YOUR_GITHUB_USERNAME/overseerr-hacs) installed and configured
+- A running [Overseerr](https://overseerr.dev/) instance reachable from your HA server
