@@ -1,7 +1,9 @@
 /**
  * Overseerr Card for Home Assistant
- * All API calls are proxied through the HA backend (/api/overseerr_proxy/)
- * to avoid CORS issues with direct browser-to-Overseerr requests.
+ * https://github.com/berserk88/overseerr-card-hacs
+ *
+ * All API calls proxy through the HA backend (/api/overseerr_proxy/)
+ * to avoid CORS. No credentials needed in the card config.
  */
 
 const STATUS_MAP = {
@@ -10,6 +12,14 @@ const STATUS_MAP = {
   3: { label: "Processing", color: "#3b82f6", icon: "⚙️" },
   4: { label: "Partial",    color: "#8b5cf6", icon: "◑"  },
   5: { label: "Available",  color: "#10b981", icon: "✓"  },
+};
+
+// Request approval status (separate from media availability status)
+const REQ_STATUS_MAP = {
+  1: { label: "Pending",   color: "#f59e0b" },
+  2: { label: "Approved",  color: "#3b82f6" },
+  3: { label: "Declined",  color: "#ef4444" },
+  4: { label: "Available", color: "#10b981" },
 };
 
 const CARD_STYLES = `
@@ -32,13 +42,9 @@ const CARD_STYLES = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   .card-root {
-    background: var(--os-bg);
-    border-radius: var(--os-card-radius);
-    overflow: hidden;
-    font-family: var(--os-font-body);
-    color: var(--os-text);
-    min-height: 480px;
-    position: relative;
+    background: var(--os-bg); border-radius: var(--os-card-radius);
+    overflow: hidden; font-family: var(--os-font-body);
+    color: var(--os-text); min-height: 480px; position: relative;
   }
 
   .card-header {
@@ -54,7 +60,7 @@ const CARD_STYLES = `
   }
   .header-title { font-family: var(--os-font-display); font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
   .header-subtitle { font-size: 11px; color: var(--os-muted); margin-top: 1px; }
-  .header-stats { display: flex; gap: 16px; align-items: center; }
+  .header-stats { display: flex; gap: 12px; align-items: center; }
   .stat-pill {
     background: var(--os-surface2); border: 1px solid var(--os-border);
     border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 500;
@@ -75,7 +81,6 @@ const CARD_STYLES = `
   }
   .tab-btn:hover { color: var(--os-text); }
   .tab-btn.active { color: var(--os-accent); border-bottom-color: var(--os-accent); }
-  .tab-icon { font-size: 14px; }
 
   .search-panel { padding: 16px 20px 20px; }
   .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -89,8 +94,8 @@ const CARD_STYLES = `
   .search-btn {
     background: linear-gradient(135deg, var(--os-accent), #d44f33);
     border: none; border-radius: 10px; padding: 10px 18px; color: white;
-    font-family: var(--os-font-display); font-size: 13px; font-weight: 600; cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s; white-space: nowrap;
+    font-family: var(--os-font-display); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: opacity 0.2s, transform 0.1s; white-space: nowrap;
   }
   .search-btn:hover { opacity: 0.9; }
   .search-btn:active { transform: scale(0.97); }
@@ -150,6 +155,10 @@ const CARD_STYLES = `
   .detail-layout { display: flex; gap: 16px; margin-bottom: 16px; }
   .detail-poster { width: 110px; min-width: 110px; border-radius: 10px; overflow: hidden; }
   .detail-poster img { width: 100%; height: auto; display: block; }
+  .detail-poster-placeholder {
+    width: 110px; height: 165px; border-radius: 10px; background: var(--os-surface2);
+    display: flex; align-items: center; justify-content: center; font-size: 32px;
+  }
   .detail-info { flex: 1; }
   .detail-title { font-family: var(--os-font-display); font-size: 18px; font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
   .detail-year { font-size: 13px; color: var(--os-muted); margin-bottom: 10px; }
@@ -169,7 +178,7 @@ const CARD_STYLES = `
   .request-btn:hover { opacity: 0.9; transform: translateY(-1px); }
   .request-btn:active { transform: translateY(0); }
   .request-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .request-btn.already-requested { background: var(--os-surface2); border: 1px solid rgba(16,185,129,0.4); color: #10b981; }
+  .request-btn.already { background: var(--os-surface2); border: 1px solid rgba(16,185,129,0.4); color: #10b981; }
   .request-btn.success { background: linear-gradient(135deg, #10b981, #059669); }
 
   .requests-panel { padding: 16px 20px; }
@@ -179,9 +188,8 @@ const CARD_STYLES = `
   }
   .request-item {
     background: var(--os-surface2); border: 1px solid var(--os-border);
-    border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 12px; transition: border-color 0.2s;
+    border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 12px;
   }
-  .request-item:hover { border-color: rgba(255,255,255,0.12); }
   .request-thumb { width: 36px; height: 54px; border-radius: 6px; object-fit: cover; background: var(--os-surface); flex-shrink: 0; }
   .request-thumb-placeholder {
     width: 36px; height: 54px; border-radius: 6px; background: var(--os-surface);
@@ -190,7 +198,10 @@ const CARD_STYLES = `
   .request-details { flex: 1; min-width: 0; }
   .request-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
   .request-meta { font-size: 11px; color: var(--os-muted); display: flex; align-items: center; gap: 8px; }
-  .status-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+    padding: 2px 7px; border-radius: 20px; flex-shrink: 0;
+  }
   .status-dot { width: 5px; height: 5px; border-radius: 50%; }
 
   .trending-panel { padding: 16px 20px; }
@@ -206,9 +217,8 @@ const CARD_STYLES = `
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: var(--os-muted); gap: 10px; font-size: 13px; }
   .empty-icon { font-size: 32px; }
   .error-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 20px; gap: 8px; font-size: 12px; text-align: center; }
-  .error-state .error-icon { font-size: 28px; }
-  .error-state .error-title { color: var(--os-accent); font-weight: 600; }
-  .error-state .error-msg { color: var(--os-muted); max-width: 240px; line-height: 1.5; }
+  .error-title { color: var(--os-accent); font-weight: 600; font-size: 13px; }
+  .error-msg { color: var(--os-muted); max-width: 240px; line-height: 1.5; }
   .retry-btn {
     background: var(--os-surface2); border: 1px solid var(--os-border); border-radius: 8px;
     padding: 6px 14px; color: var(--os-text); font-family: var(--os-font-body); font-size: 12px;
@@ -220,8 +230,8 @@ const CARD_STYLES = `
     position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(60px);
     background: var(--os-surface2); border: 1px solid var(--os-border); border-radius: 10px;
     padding: 10px 18px; font-size: 13px; font-weight: 500; white-space: nowrap;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 10; pointer-events: none;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 10;
+    pointer-events: none; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.success { border-color: rgba(16,185,129,0.4); color: #10b981; }
@@ -247,6 +257,7 @@ class OverseerrCard extends HTMLElement {
     this._initialized     = false;
     this._trendingError   = null;
     this._requestsError   = null;
+    this._requestsLoading = false;
   }
 
   static getConfigElement() { return document.createElement("overseerr-card-editor"); }
@@ -289,11 +300,10 @@ class OverseerrCard extends HTMLElement {
     if (t) t.textContent = this._totalCount;
   }
 
-  // ── API via HA backend proxy ───────────────────────────────────────────────
-  // The integration registers GET/POST /api/overseerr_proxy/{path} on HA's
-  // HTTP server and forwards them to Overseerr server-side. This completely
-  // avoids CORS — no browser-to-Overseerr traffic at all.
-  // hass.fetchWithAuth() automatically attaches the HA Bearer token.
+  // ── API proxy ─────────────────────────────────────────────────────────────
+  // Routes through /api/overseerr_proxy/ on the HA server.
+  // The integration's http_api.py forwards these to Overseerr server-side,
+  // bypassing CORS entirely. GET requests do NOT send Content-Type headers.
 
   async _apiGet(path, params = {}) {
     const url = new URL("/api/overseerr_proxy" + path, window.location.origin);
@@ -301,7 +311,7 @@ class OverseerrCard extends HTMLElement {
     const res = await this._hass.fetchWithAuth(url.pathname + url.search);
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
-      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      try { const j = await res.json(); msg = j.message || j.error || msg; } catch {}
       throw new Error(msg);
     }
     return res.json();
@@ -315,7 +325,7 @@ class OverseerrCard extends HTMLElement {
     });
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
-      try { const j = await res.json(); msg = j.error || msg; } catch {}
+      try { const j = await res.json(); msg = j.message || j.error || msg; } catch {}
       throw new Error(msg);
     }
     return res.json();
@@ -327,12 +337,12 @@ class OverseerrCard extends HTMLElement {
     const input = this.shadowRoot.querySelector(".search-input");
     const query = input?.value.trim();
     if (!query) return;
-    this._searchQuery = query;
-    this._loading = true;
+    this._searchQuery   = query;
+    this._loading       = true;
     this._selectedMedia = null;
     this._renderSearchResults();
     try {
-      // Overseerr /search only accepts 'query' and 'page' — 'language' causes HTTP 400
+      // Only pass 'query' and 'page' — Overseerr rejects unknown params with HTTP 400
       const data = await this._apiGet("/search", { query, page: 1 });
       let results = (data.results || []).filter(
         (r) => r.mediaType === "movie" || r.mediaType === "tv"
@@ -361,12 +371,38 @@ class OverseerrCard extends HTMLElement {
   }
 
   async _loadRequests() {
-    this._requestsError = null;
+    this._requestsError   = null;
+    this._requestsLoading = true;
+    if (this._activeTab === "requests") this._renderContent();
     try {
       const data = await this._apiGet("/request", { take: 20, skip: 0, filter: "all" });
-      this._requestsList = data.results || [];
+      const rawRequests = data.results || [];
+
+      // Overseerr's /request endpoint only returns tmdbId + mediaType on the media
+      // object — no title or poster. We enrich each entry by fetching /movie/{id}
+      // or /tv/{id} in parallel (max 20 requests, batched).
+      const enriched = await Promise.all(
+        rawRequests.map(async (req) => {
+          const media = req.media || {};
+          const tmdbId = media.tmdbId;
+          const mediaType = req.type || media.mediaType;
+          try {
+            if (tmdbId && mediaType === "movie") {
+              const details = await this._apiGet(`/movie/${tmdbId}`);
+              return { ...req, _details: details };
+            } else if (tmdbId && mediaType === "tv") {
+              const details = await this._apiGet(`/tv/${tmdbId}`);
+              return { ...req, _details: details };
+            }
+          } catch {}
+          return req;
+        })
+      );
+      this._requestsList = enriched;
     } catch (e) {
       this._requestsError = e.message;
+    } finally {
+      this._requestsLoading = false;
     }
     if (this._activeTab === "requests") this._renderContent();
   }
@@ -375,7 +411,7 @@ class OverseerrCard extends HTMLElement {
     const btn = this.shadowRoot.querySelector(".request-btn");
     if (btn) {
       btn.disabled  = true;
-      btn.innerHTML = `<div class="spinner" style="width:18px;height:18px;margin:0"></div> Requesting...`;
+      btn.innerHTML = `<div class="spinner" style="width:18px;height:18px;margin:0 auto"></div>`;
     }
     try {
       const payload = { mediaType: media.mediaType, mediaId: media.id };
@@ -383,7 +419,7 @@ class OverseerrCard extends HTMLElement {
       await this._apiPost("/request", payload);
       this._showToast(`✓ "${media.title || media.name}" requested!`, "success");
       if (btn) { btn.classList.add("success"); btn.innerHTML = `✓ Request Sent!`; }
-      await this._loadRequests();
+      this._loadRequests();
     } catch (e) {
       this._showToast("Request failed: " + e.message, "error");
       if (btn) { btn.disabled = false; btn.innerHTML = `🎬 Request This`; }
@@ -398,7 +434,7 @@ class OverseerrCard extends HTMLElement {
     const toast = this.shadowRoot.querySelector(".toast");
     if (!toast) return;
     toast.textContent = msg;
-    toast.className = `toast ${type}`;
+    toast.className   = `toast ${type}`;
     requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add("show")));
     setTimeout(() => toast.classList.remove("show"), 3500);
   }
@@ -429,7 +465,7 @@ class OverseerrCard extends HTMLElement {
       <div class="media-card" data-id="${item.id}" data-type="${item.mediaType}">
         ${this._statusBadge(item.mediaInfo)}
         ${poster
-          ? `<img class="media-card-poster" src="${poster}" alt="" loading="lazy" />`
+          ? `<img class="media-card-poster" src="${poster}" alt="" loading="lazy">`
           : `<div class="media-card-no-poster">${noImg}<span>${item.title || item.name || ""}</span></div>`}
         <div class="media-card-info">
           <div class="media-card-title">${item.title || item.name || "Unknown"}</div>
@@ -445,7 +481,7 @@ class OverseerrCard extends HTMLElement {
     if (errorMsg) {
       return `
         <div class="error-state">
-          <div class="error-icon">⚠️</div>
+          <div style="font-size:28px">⚠️</div>
           <div class="error-title">Could not load content</div>
           <div class="error-msg">${errorMsg}</div>
           <button class="retry-btn" data-retry="${retryKey}">↺ Retry</button>
@@ -466,7 +502,7 @@ class OverseerrCard extends HTMLElement {
     const statusInfo  = media.mediaInfo ? STATUS_MAP[media.mediaInfo.status] : null;
     const isAvailable = media.mediaInfo?.status === 5;
     const isRequested = !isAvailable && media.mediaInfo?.status >= 2;
-    const btnClass    = (isAvailable || isRequested) ? "already-requested" : "";
+    const btnClass    = (isAvailable || isRequested) ? "already" : "";
     const btnLabel    = isAvailable ? "✓ Already in Library"
                       : isRequested ? "⏳ Already Requested"
                       : "🎬 Request This";
@@ -476,11 +512,11 @@ class OverseerrCard extends HTMLElement {
         <div class="detail-layout">
           <div class="detail-poster">
             ${poster
-              ? `<img src="${poster}" alt="" loading="lazy" />`
-              : `<div class="media-card-no-poster" style="width:110px;height:165px;border-radius:10px;background:var(--os-surface2)">${media.mediaType === "movie" ? "🎬" : "📺"}</div>`}
+              ? `<img src="${poster}" alt="" loading="lazy">`
+              : `<div class="detail-poster-placeholder">${media.mediaType === "movie" ? "🎬" : "📺"}</div>`}
           </div>
           <div class="detail-info">
-            <div class="detail-title">${media.title || media.name}</div>
+            <div class="detail-title">${media.title || media.name || "Unknown"}</div>
             <div class="detail-year">${year} · ${media.mediaType === "movie" ? "Movie" : "TV Series"}</div>
             <div class="detail-badges">
               ${media.voteAverage ? `<div class="detail-badge">⭐ ${Number(media.voteAverage).toFixed(1)}</div>` : ""}
@@ -503,7 +539,7 @@ class OverseerrCard extends HTMLElement {
     return `
       <div class="search-panel">
         <div class="search-bar">
-          <input class="search-input" type="text" placeholder="Search movies & TV shows..." value="${this._searchQuery}" />
+          <input class="search-input" type="text" placeholder="Search movies & TV shows..." value="${this._searchQuery}">
           <button class="search-btn">Search</button>
         </div>
         <div class="filter-row">
@@ -517,28 +553,36 @@ class OverseerrCard extends HTMLElement {
     if (this._requestsError) {
       return `<div class="requests-panel">${this._renderGrid([], "", this._requestsError, "requests")}</div>`;
     }
-    if (!this._requestsList.length) {
+    if (this._requestsLoading) {
       return `<div class="requests-panel"><div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading requests...</span></div></div>`;
     }
+    if (!this._requestsList.length) {
+      return `<div class="requests-panel"><div class="empty-state"><div class="empty-icon">📋</div>No requests yet</div></div>`;
+    }
+
     const items = this._requestsList.map((req) => {
-      const media  = req.media || {};
-      // Overseerr returns title (movies) or name (TV) directly on the media object
-      const poster = this._posterUrl(media.posterPath);
-      const title  = media.title || media.name || media.originalTitle || media.originalName || "Unknown Title";
-      const type   = req.type === "movie" ? "Movie" : "TV";
-      const status = STATUS_MAP[media.status] || STATUS_MAP[1];
-      const date   = req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "";
+      // _details comes from the enrichment fetch (/movie/{id} or /tv/{id})
+      const details = req._details || {};
+      const media   = req.media   || {};
+      const title   = details.title || details.name || "Unknown Title";
+      const poster  = this._posterUrl(details.posterPath);
+      const type    = (req.type || media.mediaType) === "movie" ? "Movie" : "TV";
+      const year    = this._getYear(details);
+      // Use request status (pending/approved) not media availability status
+      const reqStatus = REQ_STATUS_MAP[req.status] || REQ_STATUS_MAP[1];
+      const date    = req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "";
       return `
         <div class="request-item">
           ${poster
-            ? `<img class="request-thumb" src="${poster}" alt="" loading="lazy" />`
-            : `<div class="request-thumb-placeholder">${req.type === "movie" ? "🎬" : "📺"}</div>`}
+            ? `<img class="request-thumb" src="${poster}" alt="" loading="lazy">`
+            : `<div class="request-thumb-placeholder">${type === "Movie" ? "🎬" : "📺"}</div>`}
           <div class="request-details">
-            <div class="request-title">${title}</div>
+            <div class="request-title">${title}${year !== "—" ? ` (${year})` : ""}</div>
             <div class="request-meta"><span>${type}</span>${date ? `<span>${date}</span>` : ""}</div>
           </div>
-          <div class="status-indicator" style="background:${status.color}15;color:${status.color}">
-            <div class="status-dot" style="background:${status.color}"></div>${status.label}
+          <div class="status-pill" style="background:${reqStatus.color}18;color:${reqStatus.color}">
+            <div class="status-dot" style="background:${reqStatus.color}"></div>
+            ${reqStatus.label}
           </div>
         </div>`;
     });
@@ -587,8 +631,9 @@ class OverseerrCard extends HTMLElement {
     const root  = this.shadowRoot;
     const btn   = root.querySelector(".search-btn");
     const input = root.querySelector(".search-input");
-    btn?.addEventListener("click", () => this._search());
+    btn?.addEventListener("click",    () => this._search());
     input?.addEventListener("keydown", (e) => { if (e.key === "Enter") this._search(); });
+
     root.querySelectorAll(".filter-chip").forEach((chip) => {
       chip.addEventListener("click", () => {
         this._searchFilter = chip.dataset.filter;
@@ -599,21 +644,25 @@ class OverseerrCard extends HTMLElement {
         }
       });
     });
-    const backBtn = root.querySelector(".detail-back");
-    backBtn?.addEventListener("click", () => { this._selectedMedia = null; this._renderContent(); });
+
+    root.querySelector(".detail-back")?.addEventListener("click", () => {
+      this._selectedMedia = null; this._renderContent();
+    });
+
     const reqBtn = root.querySelector(".request-btn");
     if (reqBtn && this._selectedMedia && !reqBtn.disabled) {
       reqBtn.addEventListener("click", () => this._requestMedia(this._selectedMedia));
     }
+
     this._attachMediaCardListeners();
   }
 
   _attachMediaCardListeners() {
     this.shadowRoot.querySelectorAll(".media-card").forEach((card) => {
       card.addEventListener("click", () => {
-        const id   = parseInt(card.dataset.id);
-        const type = card.dataset.type;
-        const all  = [...this._searchResults, ...this._trendingResults];
+        const id    = parseInt(card.dataset.id);
+        const type  = card.dataset.type;
+        const all   = [...this._searchResults, ...this._trendingResults];
         const media = all.find((m) => m.id === id && m.mediaType === type);
         if (media) { this._activeTab = "search"; this._updateTabs(); this._showDetail(media); }
       });
@@ -623,12 +672,11 @@ class OverseerrCard extends HTMLElement {
   _attachRetryListeners() {
     this.shadowRoot.querySelectorAll(".retry-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const target = btn.dataset.retry;
-        if (target === "trending") {
+        if (btn.dataset.retry === "trending") {
           this._trendingError = null; this._trendingResults = [];
           this._renderContent(); this._loadTrending();
         }
-        if (target === "requests") {
+        if (btn.dataset.retry === "requests") {
           this._requestsError = null; this._requestsList = [];
           this._renderContent(); this._loadRequests();
         }
@@ -675,7 +723,7 @@ class OverseerrCard extends HTMLElement {
         <div class="tabs">
           ${tabs.map((t) => `
             <button class="tab-btn ${this._activeTab === t.key ? "active" : ""}" data-tab="${t.key}">
-              <span class="tab-icon">${t.icon}</span>${t.label}
+              <span>${t.icon}</span>${t.label}
             </button>`).join("")}
         </div>
         <div class="tab-content"></div>
@@ -688,8 +736,8 @@ class OverseerrCard extends HTMLElement {
         this._selectedMedia = null;
         this._updateTabs();
         this._renderContent();
-        if (this._activeTab === "requests" && !this._requestsList.length && !this._requestsError) this._loadRequests();
-        if (this._activeTab === "trending" && !this._trendingResults.length && !this._trendingError) this._loadTrending();
+        if (this._activeTab === "requests" && !this._requestsList.length && !this._requestsLoading) this._loadRequests();
+        if (this._activeTab === "trending" && !this._trendingResults.length && !this._trendingError)  this._loadTrending();
       });
     });
 
